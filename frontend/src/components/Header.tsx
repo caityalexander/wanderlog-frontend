@@ -1,27 +1,21 @@
 import { Link } from "react-router-dom";
 
+
 function Header() {
     return (
-        <header
-            style={{
-                background: "#1e293b",
-                color: "white",
-                padding: "15px 30px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-            }}
-        >
-            <h2 style={{ margin: 0 }}>WanderLog</h2>
+        <header className="header">
+            <h2 className="header-title">WanderLog</h2>
 
-            <nav style={{ display: "flex", gap: "20px" }}>
-                <Link to="/" style={{ color: "white", textDecoration: "none" }}>
+            <nav className="header-nav">
+                <Link to="/" className="header-link">
                     Home
                 </Link>
-                <Link to="/login" style={{ color: "white", textDecoration: "none" }}>
+
+                <Link to="/login" className="header-link">
                     Login
                 </Link>
-                <Link to="/register" style={{ color: "white", textDecoration: "none" }}>
+
+                <Link to="/register" className="header-link">
                     Register
                 </Link>
             </nav>

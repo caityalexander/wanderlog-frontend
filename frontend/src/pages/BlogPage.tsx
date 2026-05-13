@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import BlogCard from "../components/BlogCard";
 
+
 type Blog = {
     blogId: number;
     title: string;
@@ -24,9 +25,16 @@ function BlogPage() {
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
     const [sortBy, setSortBy] = useState("CREATED_DESC");
 
-    useEffect(() => {
-        fetchBlogs();
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(10);
+    const [totalBlogs, setTotalBlogs] = useState(0);
+    const [numReactions, setNumReactions] = useState("");
 
+    const totalPages = Math.ceil(totalBlogs / pageSize);
+    const isFirstPage = page === 1;
+    const isLastPage = page === totalPages || totalPages === 0;
+
+    useEffect(() => {
         fetch(`${import.meta.env.VITE_API_URL}/blogs/cities`)
             .then((res) => res.json())
             .then((data) => {
@@ -48,16 +56,17 @@ function BlogPage() {
             });
     }, []);
 
-    function getSelectedValues(options: HTMLCollectionOf<HTMLOptionElement>) {
-        return Array.from(options)
-            .filter((option) => option.selected)
-            .map((option) => option.value);
-    }
+    useEffect(() => {
+        fetchBlogs();
+    }, [page]);
 
-    function fetchBlogs() {
+    function fetchBlogs(pageToFetch = page) {
         setError("");
 
         const params = new URLSearchParams();
+
+        params.append("startIndex", String((pageToFetch - 1) * pageSize));
+        params.append("count", String(pageSize));
 
         if (search.trim() !== "") {
             params.append("q", search.trim());
@@ -75,6 +84,10 @@ function BlogPage() {
             params.append("sortBy", sortBy);
         }
 
+        if (numReactions !== "") {
+            params.append("numReactions", numReactions);
+        }
+
         fetch(`${import.meta.env.VITE_API_URL}/blogs?${params.toString()}`)
             .then((res) => {
                 if (!res.ok) {
@@ -84,10 +97,16 @@ function BlogPage() {
             })
             .then((data) => {
                 setBlogs(data.blogs);
+                setTotalBlogs(data.count);
             })
             .catch((err) => {
                 setError(err.message);
             });
+    }
+
+    function applySearchAndFilters() {
+        setPage(1);
+        fetchBlogs(1);
     }
 
     function clearAll() {
@@ -95,27 +114,106 @@ function BlogPage() {
         setSelectedCityIds([]);
         setSelectedCategoryIds([]);
         setSortBy("CREATED_DESC");
+        setPage(1);
+        setNumReactions("");
 
-        fetch(`${import.meta.env.VITE_API_URL}/blogs?sortBy=CREATED_DESC`)
-            .then((res) => res.json())
+        setError("");
+
+        const params = new URLSearchParams();
+        params.append("startIndex", "0");
+        params.append("count", String(pageSize));
+        params.append("sortBy", "CREATED_DESC");
+
+        fetch(`${import.meta.env.VITE_API_URL}/blogs?${params.toString()}`)
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error("Failed to fetch blogs");
+                }
+                return res.json();
+            })
             .then((data) => {
                 setBlogs(data.blogs);
+                setTotalBlogs(data.count);
             })
             .catch((err) => {
                 setError(err.message);
             });
     }
 
+    type CheckboxDropdownProps = {
+        label: string;
+        options: Record<number, string>;
+        selectedValues: string[];
+        setSelectedValues: React.Dispatch<React.SetStateAction<string[]>>;
+    };
+
+    function goToFirstPage() {
+        setPage(1);
+    }
+
+    function goToPreviousPage() {
+        if (page > 1) {
+            setPage(page - 1);
+        }
+    }
+
+    function goToNextPage() {
+        if (page < totalPages) {
+            setPage(page + 1);
+        }
+    }
+
+    function goToLastPage() {
+        setPage(totalPages);
+    }
+
+    function CheckboxDropdown({
+                                  label,
+                                  options,
+                                  selectedValues,
+                                  setSelectedValues,
+                              }: CheckboxDropdownProps) {
+        const [open, setOpen] = useState(false);
+
+        function toggleValue(value: string) {
+            if (selectedValues.includes(value)) {
+                setSelectedValues(selectedValues.filter((item) => item !== value));
+            } else {
+                setSelectedValues([...selectedValues, value]);
+            }
+        }
+
+        return (
+            <div className="checkbox-dropdown">
+                <button
+                    type="button"
+                    className="blog-page__select checkbox-dropdown__button"
+                    onClick={() => setOpen(!open)}
+                >
+                    {selectedValues.length === 0
+                        ? `Select ${label.toLowerCase()}`
+                        : `${selectedValues.length} selected`}
+                </button>
+
+                {open && (
+                    <div className="checkbox-dropdown__menu">
+                        {Object.entries(options).map(([id, name]) => (
+                            <label key={id} className="checkbox-dropdown__option">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedValues.includes(id)}
+                                    onChange={() => toggleValue(id)}
+                                />
+                                <span>{name}</span>
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
     return (
         <div className="blog-page">
-            <div className="blog-page__header">
-                <div>
-                    <h1 className="blog-page__title">Travel Blogs</h1>
-                    <p className="blog-page__subtitle">
-                        Find stories by city, category, or keyword.
-                    </p>
-                </div>
-            </div>
 
             {error && <p className="blog-page__error">{error}</p>}
 
@@ -123,47 +221,30 @@ function BlogPage() {
                 <aside className="blog-page__sidebar">
                     <h2 className="blog-page__sidebar-title">Filter blogs</h2>
 
-                    <label className="blog-page__label">Search</label>
-                    <input
-                        type="text"
-                        placeholder="Search by title or description"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && fetchBlogs()}
-                        className="blog-page__input"
+                    <label className="blog-page__label">Cities</label>
+                    <CheckboxDropdown
+                        label="Cities"
+                        options={cities}
+                        selectedValues={selectedCityIds}
+                        setSelectedValues={setSelectedCityIds}
                     />
 
-                    <label className="blog-page__label">Cities</label>
-                    <select
-                        multiple
-                        value={selectedCityIds}
-                        onChange={(e) =>
-                            setSelectedCityIds(getSelectedValues(e.target.selectedOptions))
-                        }
-                        className="blog-page__multi-select"
-                    >
-                        {Object.entries(cities).map(([id, name]) => (
-                            <option key={id} value={id}>
-                                {name}
-                            </option>
-                        ))}
-                    </select>
-
                     <label className="blog-page__label">Categories</label>
-                    <select
-                        multiple
-                        value={selectedCategoryIds}
-                        onChange={(e) =>
-                            setSelectedCategoryIds(getSelectedValues(e.target.selectedOptions))
-                        }
-                        className="blog-page__multi-select"
-                    >
-                        {Object.entries(categories).map(([id, name]) => (
-                            <option key={id} value={id}>
-                                {name}
-                            </option>
-                        ))}
-                    </select>
+                    <CheckboxDropdown
+                        label="Categories"
+                        options={categories}
+                        selectedValues={selectedCategoryIds}
+                        setSelectedValues={setSelectedCategoryIds}
+                    />
+
+                    <label className="blog-page__label">Minimum reactions</label>
+                    <input
+                        type="number"
+                        min="0"
+                        value={numReactions}
+                        onChange={(e) => setNumReactions(e.target.value)}
+                        className="blog-page__select"
+                    />
 
                     <label className="blog-page__label">Sort by</label>
                     <select
@@ -179,7 +260,7 @@ function BlogPage() {
                         <option value="REACTIONS_ASC">Least reactions</option>
                     </select>
 
-                    <button onClick={fetchBlogs} className="blog-page__apply-btn">
+                    <button onClick={applySearchAndFilters} className="blog-page__apply-btn">
                         Apply filters
                     </button>
 
@@ -187,14 +268,26 @@ function BlogPage() {
                         Clear filters
                     </button>
 
-                    <p className="blog-page__hint">
-                        Hold Ctrl or Cmd to select multiple options.
-                    </p>
                 </aside>
 
                 <main className="blog-page__main">
+                    <div className="blog-page__search-bar">
+                        <input
+                            type="text"
+                            placeholder="Search by title or description"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && applySearchAndFilters()}
+                            className="blog-page__search-input"
+                        />
+
+                        <button onClick={applySearchAndFilters} className="blog-page__search-btn">
+                            Search
+                        </button>
+                    </div>
+
                     <div className="blog-page__results-header">
-                        <h2>{blogs.length} blogs found</h2>
+                        <h2>{totalBlogs} blogs found</h2>
                     </div>
 
                     {blogs.length === 0 ? (
@@ -216,6 +309,38 @@ function BlogPage() {
                                 />
                             ))}
                         </div>
+                    )}
+
+                    {totalBlogs > pageSize && (
+                        <>
+                            <div className="blog-page__pagination">
+                                <button onClick={goToFirstPage} disabled={isFirstPage}>
+                                    First
+                                </button>
+
+                                <button onClick={goToPreviousPage} disabled={isFirstPage}>
+                                    Previous
+                                </button>
+
+                                <span>
+                Page {page} of {totalPages}
+            </span>
+
+                                <button onClick={goToNextPage} disabled={isLastPage}>
+                                    Next
+                                </button>
+
+                                <button onClick={goToLastPage} disabled={isLastPage}>
+                                    Last
+                                </button>
+                            </div>
+
+                            {isLastPage && (
+                                <p className="blog-page__last-page-message">
+                                    You have reached the last page.
+                                </p>
+                            )}
+                        </>
                     )}
                 </main>
             </div>

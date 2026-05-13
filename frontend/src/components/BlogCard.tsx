@@ -8,6 +8,7 @@ type BlogCardProps = {
     city: string;
     categories: string[];
     numReactions: number;
+    description: string;
 };
 
 function BlogCard({
@@ -20,8 +21,10 @@ function BlogCard({
                       creatorId,
                       city,
                       categories,
+    description,
                   }: BlogCardProps) {
     return (
+        <a href={`/blog?blogId=${blogId}`}>
         <div className="blog-card">
             <div className="blog-card__image-wrap">
                 <img
@@ -57,7 +60,7 @@ function BlogCard({
                 <div className="blog-card__footer">
                     <div className="blog-card__author">
                         <img
-                            src={`http://localhost:4941/api/v1/users/${creatorId}/image`}
+                            src={`${import.meta.env.VITE_API_URL}/users/${creatorId}/image`}
                             alt="creator"
                             className="blog-card__avatar"
                             onError={(e) => {
@@ -76,9 +79,13 @@ function BlogCard({
                         </svg>
                         {numReactions}
                     </div>
+                    < div >
+                        <p>{description}</p>
+                    </div>
                 </div>
             </div>
         </div>
+        </a>
     );
 }
 

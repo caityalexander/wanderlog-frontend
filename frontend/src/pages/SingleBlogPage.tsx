@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import SingleBlogCard from "../components/SingleBlogCard";
 import CommentCard from "../components/CommentCard";
+import BlogCard from "@/components/BlogCard.tsx";
 
 type Blog = {
     blogId: number;
@@ -19,6 +21,17 @@ type Blog = {
     };
     description: string;
     series: string;
+};
+type SimilarBlog = {
+    blogId: number;
+    title: string;
+    creatorFirstName: string;
+    creatorLastName: string;
+    creatorId: number;
+    creationDate: string;
+    cityId: number;
+    categoryIds: number[];
+    numReactions: number;
 };
 
 type Comment = {
@@ -39,7 +52,15 @@ function SingleBlogPage() {
     const [blog, setBlog] = useState<Blog | null>(null);
     const [cities, setCities] = useState<Record<number, string>>({});
     const [categories, setCategories] = useState<Record<number, string>>({});
-    const [comments, setComments] = useState<Comment[]>([]);
+    const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState("");
+    const [replyToCommentId, setReplyToCommentId] = useState<number | null>(null);
+    const [commentError, setCommentError] = useState("");
+
+    const [similarBlogs, setSimilarBlogs] = useState<SimilarBlog[]>([]);
+
+    const isLoggedIn = localStorage.getItem("token") !== null;
+
 
     const [reactions, setReactions] = useState({
         REACTION_1: 0,
@@ -55,6 +76,12 @@ function SingleBlogPage() {
         fetchReactions();
         fetchComments();
     }, [blogId]);
+
+    useEffect(() => {
+        if (blog) {
+            fetchSimilarBlogs(blog);
+        }
+    }, [blog]);
 
     function fetchCities() {
         fetch(`${import.meta.env.VITE_API_URL}/blogs/cities`)
@@ -119,17 +146,10 @@ function SingleBlogPage() {
     }
 
     function fetchComments() {
-        if (!blogId) return;
-
         fetch(`${import.meta.env.VITE_API_URL}/blogs/${blogId}/comments`)
-            .then((res) => {
-                if (!res.ok) throw new Error("Failed to fetch comments");
-                return res.json();
-            })
-            .then((data) => {
-                setComments(data);
-            })
-            .catch((err) => setError(err.message));
+            .then((res) => res.json())
+            .then(setComments)
+            .catch(() => setCommentError("Failed to load comments."));
     }
 
     const parentComments = comments
@@ -148,6 +168,84 @@ function SingleBlogPage() {
             );
     }
 
+    function fetchSimilarBlogs(currentBlog: Blog) {
+        fetch(`${import.meta.env.VITE_API_URL}/blogs`)
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error("Failed to fetch similar blogs");
+                }
+
+                return res.json();
+            })
+            .then((data) => {
+                const filteredBlogs = data.blogs.filter(
+                    (similarBlog: SimilarBlog) => {
+                        if (similarBlog.blogId === currentBlog.blogId) {
+                            return false;
+                        }
+
+                        const sameCreator =
+                            similarBlog.creatorId === currentBlog.creatorId;
+
+                        const sameCity =
+                            similarBlog.cityId === currentBlog.cityId;
+
+                        const sameCategory =
+                            similarBlog.categoryIds.some((categoryId) =>
+                                currentBlog.categoryIds.includes(categoryId)
+                            );
+
+                        return sameCreator || sameCity || sameCategory;
+                    }
+                );
+
+                setSimilarBlogs(filteredBlogs);
+            })
+            .catch((err) => {
+                setError(err.message);
+            });
+    }
+
+    async function submitComment(e: React.FormEvent) {
+        e.preventDefault();
+        setCommentError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            setCommentError("Please log in or register to comment.");
+            return;
+        }
+
+        if (!newComment.trim()) {
+            setCommentError("Comment cannot be empty.");
+            return;
+        }
+
+        const body =
+            replyToCommentId === null
+                ? { comment: newComment.trim() }
+                : { comment: newComment.trim(), parentId: replyToCommentId };;
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/blogs/${blogId}/comments`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Authorization": token,
+            },
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            setCommentError(response.statusText || "Failed to post comment.");
+            return;
+        }
+
+        setNewComment("");
+        setReplyToCommentId(null);
+        fetchComments();
+    }
+
     return (
         <div className="blog-page">
             {error && <p className="blog-page__error">{error}</p>}
@@ -155,37 +253,64 @@ function SingleBlogPage() {
             {!blog && !error && <p>Loading blog...</p>}
 
             {blog && (
-                <>
-                    <SingleBlogCard
-                        blogId={blog.blogId}
-                        title={blog.title}
-                        creatorFirstName={blog.creatorFirstName}
-                        creatorLastName={blog.creatorLastName}
-                        creatorId={blog.creatorId}
-                        creationDate={blog.creationDate}
-                        city={cities[blog.cityId]}
-                        categories={blog.categoryIds.map((id) => categories[id])}
-                        reactions={reactions}
-                        description={blog.description}
-                        series={blog.series}
-                    />
+                <div className="single-blog-layout">
 
-                    <h2 className="comments-title">Comments</h2>
+                    <div className="single-blog-layout__post">
+                        <SingleBlogCard
+                            blogId={blog.blogId}
+                            title={blog.title}
+                            creatorFirstName={blog.creatorFirstName}
+                            creatorLastName={blog.creatorLastName}
+                            creatorId={blog.creatorId}
+                            creationDate={blog.creationDate}
+                            city={cities[blog.cityId]}
+                            categories={blog.categoryIds.map((id) => categories[id])}
+                            reactions={reactions}
+                            description={blog.description}
+                            series={blog.series}
+                            isLoggedIn={isLoggedIn}
+                        />
+                    </div>
 
-                    {comments.length === 0 && <p>No comments yet.</p>}
+                    <div className="comments-section">
+                        <h2>Comments</h2>
 
-                    {parentComments.map((comment) => (
-                        <div key={comment.commentId}>
-                            <CommentCard
-                                commentId={comment.commentId}
-                                creatorFirstName={comment.commenterFirstName}
-                                creatorLastName={comment.commenterLastName}
-                                creatorId={comment.commenterId}
-                                comment={comment.comment}
-                                creationDate={comment.timestamp}
+                        <form onSubmit={submitComment} className="comment-form">
+                            {replyToCommentId !== null && (
+                                <p className="comment-replying">
+                                    Replying to a comment
+                                    <button type="button" onClick={() => setReplyToCommentId(null)}>
+                                        Cancel
+                                    </button>
+                                </p>
+                            )}
+
+                            <textarea
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                placeholder={replyToCommentId ? "Write your reply..." : "Write a comment..."}
                             />
 
-                            <div style={{ marginLeft: "32px" }}>
+                            {commentError && <p className="add-blog-error">{commentError}</p>}
+
+                            <button type="submit" className="add-blog-primary">
+                                {replyToCommentId ? "Post reply" : "Post comment"}
+                            </button>
+                        </form>
+
+                        {parentComments.map((comment) => (
+                            <div key={comment.commentId}>
+                                <CommentCard
+                                    commentId={comment.commentId}
+                                    creatorFirstName={comment.commenterFirstName}
+                                    creatorLastName={comment.commenterLastName}
+                                    creatorId={comment.commenterId}
+                                    comment={comment.comment}
+                                    creationDate={comment.timestamp}
+                                    isLoggedIn={isLoggedIn}
+                                    onReply={setReplyToCommentId}
+                                />
+
                                 {repliesFor(comment.commentId).map((reply) => (
                                     <CommentCard
                                         key={reply.commentId}
@@ -195,15 +320,42 @@ function SingleBlogPage() {
                                         creatorId={reply.commenterId}
                                         comment={reply.comment}
                                         creationDate={reply.timestamp}
+                                        isReply={true}
+                                        isLoggedIn={isLoggedIn}
                                     />
                                 ))}
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                </div>
+            )}
+
+
+            {similarBlogs.length > 0 && (
+                <>
+                    <h2>Similar Blogs</h2>
+
+                    <div className="blog-page__grid">
+                        {similarBlogs.map((similarBlog) => (
+                            <BlogCard
+                                key={similarBlog.blogId}
+                                blogId={similarBlog.blogId}
+                                title={similarBlog.title}
+                                creatorFirstName={similarBlog.creatorFirstName}
+                                creatorLastName={similarBlog.creatorLastName}
+                                creatorId={similarBlog.creatorId}
+                                creationDate={similarBlog.creationDate}
+                                city={cities[similarBlog.cityId]}
+                                categories={similarBlog.categoryIds.map((id) => categories[id])}
+                                numReactions={similarBlog.numReactions}
+                            />
+                        ))}
+                    </div>
                 </>
             )}
-        </div>
-    );
-}
+
+            </div>
+
+    )}
 
 export default SingleBlogPage;

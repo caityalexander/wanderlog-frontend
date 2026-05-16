@@ -1,3 +1,5 @@
+import {Link} from "react-router-dom";
+
 type BlogCardProps = {
     blogId: number;
     title: string;
@@ -59,15 +61,17 @@ function BlogCard({
 
                 <div className="blog-card__footer">
                     <div className="blog-card__author">
-                        <img
-                            src={`${import.meta.env.VITE_API_URL}/users/${creatorId}/image`}
-                            alt="creator"
-                            className="blog-card__avatar"
-                            onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src =
-                                    `https://ui-avatars.com/api/?name=${creatorFirstName}+${creatorLastName}&background=e0e0e0&color=555`;
-                            }}
-                        />
+                        <Link to={`/profile/${creatorId}`}>
+                            <img
+                                src={`${import.meta.env.VITE_API_URL}/users/${creatorId}/image`}
+                                alt={`${creatorFirstName} ${creatorLastName}`}
+                                className="feed-card__avatar feed-card__avatar--clickable"
+                                onError={(e) => {
+                                    e.currentTarget.src =
+                                        `https://ui-avatars.com/api/?name=${creatorFirstName}+${creatorLastName}&background=e0e0e0&color=555`;
+                                }}
+                            />
+                        </Link>
                         <span className="blog-card__author-name">
                             {creatorFirstName} {creatorLastName}
                         </span>

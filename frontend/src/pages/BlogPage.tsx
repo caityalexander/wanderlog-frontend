@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import BlogCard from "../components/BlogCard";
+import { useNavigate } from "react-router-dom";
 
 
 type Blog = {
@@ -15,6 +16,7 @@ type Blog = {
 };
 
 function BlogPage() {
+    const navigate = useNavigate();
     const [cities, setCities] = useState<Record<number, string>>({});
     const [categories, setCategories] = useState<Record<number, string>>({});
     const [blogs, setBlogs] = useState<Blog[]>([]);
@@ -271,18 +273,30 @@ function BlogPage() {
                 </aside>
 
                 <main className="blog-page__main">
-                    <div className="blog-page__search-bar">
-                        <input
-                            type="text"
-                            placeholder="Search by title or description"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && applySearchAndFilters()}
-                            className="blog-page__search-input"
-                        />
+                    <div className="blog-page__top-bar">
+                        <div className="blog-page__search-bar">
+                            <input
+                                type="text"
+                                placeholder="Search by title or description"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && applySearchAndFilters()}
+                                className="blog-page__search-input"
+                            />
 
-                        <button onClick={applySearchAndFilters} className="blog-page__search-btn">
-                            Search
+                            <button
+                                onClick={applySearchAndFilters}
+                                className="blog-page__search-btn"
+                            >
+                                Search
+                            </button>
+                        </div>
+
+                        <button
+                            className="blog-page__search-btn"
+                            onClick={() => navigate("/create")}
+                        >
+                            + Add Blog
                         </button>
                     </div>
 
@@ -343,8 +357,8 @@ function BlogPage() {
                         </>
                     )}
                 </main>
+    </div>
             </div>
-        </div>
     );
 }
 

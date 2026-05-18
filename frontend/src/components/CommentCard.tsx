@@ -9,6 +9,7 @@ type CommentCardProps = {
     creationDate: string;
     isReply?: boolean;
     isLoggedIn: boolean;
+    replyCount?: number;
     onReply?: (commentId: number) => void;
 };
 
@@ -21,6 +22,7 @@ function CommentCard({
                          creationDate,
                          isReply = false,
                          isLoggedIn,
+                         replyCount = 0,
                          onReply,
                      }: CommentCardProps) {
     return (
@@ -57,6 +59,12 @@ function CommentCard({
                 </div>
 
                 <p className="feed-card__desc">{comment}</p>
+
+                {!isReply && (
+                    <p className="feed-card__byline">
+                        {replyCount} {replyCount === 1 ? "reply" : "replies"}
+                    </p>
+                )}
 
                 {!isReply && isLoggedIn && onReply && (
                     <button

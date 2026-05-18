@@ -221,15 +221,26 @@ function BlogPage() {
 
             <div className="blog-page__layout">
                 <aside className="blog-page__sidebar">
-                    <h2 className="blog-page__sidebar-title">Filter blogs</h2>
+                    <h2 className="blog-page__sidebar-title">Filter and Sort blogs</h2>
 
                     <label className="blog-page__label">Cities</label>
-                    <CheckboxDropdown
-                        label="Cities"
-                        options={cities}
-                        selectedValues={selectedCityIds}
-                        setSelectedValues={setSelectedCityIds}
-                    />
+                    <select
+                        value={selectedCityIds[0] || ""}
+                        onChange={(e) =>
+                            setSelectedCityIds(
+                                e.target.value ? [e.target.value] : []
+                            )
+                        }
+                        className="blog-page__select"
+                    >
+                        <option value="">All cities</option>
+
+                        {Object.entries(cities).map(([id, name]) => (
+                            <option key={id} value={id}>
+                                {name}
+                            </option>
+                        ))}
+                    </select>
 
                     <label className="blog-page__label">Categories</label>
                     <CheckboxDropdown
@@ -269,6 +280,24 @@ function BlogPage() {
                     <button onClick={clearAll} className="blog-page__clear-btn">
                         Clear filters
                     </button>
+                    <label className="blog-page__label">Sort by</label>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="blog-page__select"
+                    >
+                        <option value="CREATED_DESC">Newest first</option>
+                        <option value="CREATED_ASC">Oldest first</option>
+                        <option value="ALPHABETICAL_ASC">Title A-Z</option>
+                        <option value="ALPHABETICAL_DESC">Title Z-A</option>
+                        <option value="REACTIONS_DESC">Most reactions</option>
+                        <option value="REACTIONS_ASC">Least reactions</option>
+                    </select>
+
+                    <button onClick={applySearchAndFilters} className="blog-page__apply-btn">
+                        Apply Sorting
+                    </button>
+
 
                 </aside>
 

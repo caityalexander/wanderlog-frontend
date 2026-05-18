@@ -18,6 +18,7 @@ type Blog = {
         REACTION_2: number;
         REACTION_3: number;
         REACTION_4: number;
+        REACTION_5: number;
     };
     description: string;
     series: string;
@@ -56,6 +57,7 @@ function SingleBlogPage() {
     const [newComment, setNewComment] = useState("");
     const [replyToCommentId, setReplyToCommentId] = useState<number | null>(null);
     const [commentError, setCommentError] = useState("");
+    const [userReaction, setUserReaction] = useState<string | null>(null);
 
     const [similarBlogs, setSimilarBlogs] = useState<SimilarBlog[]>([]);
 
@@ -67,6 +69,7 @@ function SingleBlogPage() {
         REACTION_2: 0,
         REACTION_3: 0,
         REACTION_4: 0,
+        REACTION_5: 0,
     });
 
     useEffect(() => {
@@ -125,6 +128,8 @@ function SingleBlogPage() {
     function fetchReactions() {
         if (!blogId) return;
 
+        const userId = Number(localStorage.getItem("userId"));
+
         fetch(`${import.meta.env.VITE_API_URL}/blogs/${blogId}/react`)
             .then((res) => res.json())
             .then((data) => {
@@ -133,11 +138,16 @@ function SingleBlogPage() {
                     REACTION_2: 0,
                     REACTION_3: 0,
                     REACTION_4: 0,
+                    REACTION_5: 0,
                 };
 
                 data.forEach((reaction: any) => {
                     if (reaction.reaction in counts) {
                         counts[reaction.reaction as keyof typeof counts]++;
+                    }
+
+                    if (reaction.userId === userId) {
+                        setUserReaction(reaction.reaction);
                     }
                 });
 
@@ -158,6 +168,9 @@ function SingleBlogPage() {
             (a, b) =>
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
+    const uniqueCommenters = new Set(
+        comments.map((comment) => comment.commenterId)
+    ).size;
 
     function repliesFor(parentId: number) {
         return comments
@@ -269,6 +282,8 @@ function SingleBlogPage() {
                             description={blog.description}
                             series={blog.series}
                             isLoggedIn={isLoggedIn}
+                            uniqueCommenters={uniqueCommenters}
+                            userReaction={userReaction}
                         />
                     </div>
 
@@ -308,6 +323,7 @@ function SingleBlogPage() {
                                     comment={comment.comment}
                                     creationDate={comment.timestamp}
                                     isLoggedIn={isLoggedIn}
+                                    replyCount={repliesFor(comment.commentId).length}
                                     onReply={setReplyToCommentId}
                                 />
 
@@ -336,20 +352,20 @@ function SingleBlogPage() {
                     <h2>Similar Blogs</h2>
 
                     <div className="blog-page__grid">
-                        {similarBlogs.map((similarBlog) => (
-                            <BlogCard
-                                key={similarBlog.blogId}
-                                blogId={similarBlog.blogId}
-                                title={similarBlog.title}
-                                creatorFirstName={similarBlog.creatorFirstName}
-                                creatorLastName={similarBlog.creatorLastName}
-                                creatorId={similarBlog.creatorId}
-                                creationDate={similarBlog.creationDate}
-                                city={cities[similarBlog.cityId]}
-                                categories={similarBlog.categoryIds.map((id) => categories[id])}
-                                numReactions={similarBlog.numReactions}
-                            />
-                        ))}
+                        {similarBlogs.slice(0, 6).map((similarBlog) => (
+                        <BlogCard
+                            key={similarBlog.blogId}
+                            blogId={similarBlog.blogId}
+                            title={similarBlog.title}
+                            creatorFirstName={similarBlog.creatorFirstName}
+                            creatorLastName={similarBlog.creatorLastName}
+                            creatorId={similarBlog.creatorId}
+                            creationDate={similarBlog.creationDate}
+                            city={cities[similarBlog.cityId]}
+                            categories={similarBlog.categoryIds.map((id) => categories[id])}
+                            numReactions={similarBlog.numReactions}
+                        />
+                    ))}
                     </div>
                 </>
             )}

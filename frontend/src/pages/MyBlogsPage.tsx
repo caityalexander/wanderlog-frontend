@@ -50,6 +50,24 @@ function MyBlogsPage() {
             });
     }
 
+    async function userCommentedOnBlog(blogId: number, userId: number, token: string) {
+        const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/blogs/${blogId}/comments`,
+            {
+                headers: { "X-Authorization": token },
+            }
+        );
+
+        if (!response.ok) {
+            return false;
+        }
+
+        const comments = await response.json();
+
+        return comments.some((comment: any) => comment.commenterId === userId);
+    }
+
+
     async function fetchMyBlogs() {
         const token = localStorage.getItem("token");
         const userId = Number(localStorage.getItem("userId"));
@@ -96,19 +114,33 @@ function MyBlogsPage() {
 
             const involvementMap: Record<number, string[]> = {};
 
-            allBlogs.forEach((blog) => {
-                const labels: string[] = [];
+            await Promise.all(
+                allBlogs.map(async (blog) => {
+                    const labels: string[] = [];
 
-                if (blog.creatorId === userId) {
-                    labels.push("Created");
-                }
+                    if (blog.creatorId === userId) {
+                        labels.push("Created");
+                    }
 
-                if (interactedData.blogs.some((b: Blog) => b.blogId === blog.blogId)) {
-                    labels.push("Interacted");
-                }
+                    const commented = await userCommentedOnBlog(blog.blogId, userId, token);
 
-                involvementMap[blog.blogId] = labels;
-            });
+                    const wasInteractedBlog = interactedData.blogs.some(
+                        (b: Blog) => b.blogId === blog.blogId
+                    );
+
+                    const reacted = wasInteractedBlog && !commented;;
+
+                    if (commented) {
+                        labels.push("Commented");
+                    }
+
+                    if (reacted) {
+                        labels.push("Reacted");
+                    }
+
+                    involvementMap[blog.blogId] = labels;
+                })
+            );
 
             setInvolvement(involvementMap);
         } catch (err: any) {

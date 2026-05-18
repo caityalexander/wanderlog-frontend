@@ -1,5 +1,28 @@
-import { Cherry, Cake, Rainbow, Cat, PencilLine, Trash2} from "lucide-react";
+import { Cherry, Cake, Rainbow, Cat, Headphones, PencilLine, Trash2} from "lucide-react";
 import {Link, useNavigate} from "react-router-dom";
+
+type SingleBlogCardProps = {
+    blogId: number;
+    title: string;
+    creatorFirstName: string;
+    creatorLastName: string;
+    creatorId: number;
+    creationDate: string;
+    city: string;
+    categories: string[];
+    reactions: {
+        REACTION_1: number;
+        REACTION_2: number;
+        REACTION_3: number;
+        REACTION_4: number;
+        REACTION_5: number;
+    };
+    description: string;
+    series?: string;
+    isLoggedIn: boolean;
+    uniqueCommenters: number;
+    userReaction?: string | null;
+};
 
 function SingleBlogCard({
                             blogId,
@@ -13,7 +36,9 @@ function SingleBlogCard({
                             categories,
                             description,
                             series,
-    isLoggedIn,
+                            isLoggedIn,
+                            uniqueCommenters,
+                            userReaction,
                         }: SingleBlogCardProps) {
     const navigate = useNavigate();
 
@@ -25,19 +50,23 @@ function SingleBlogCard({
             return;
         }
 
+        const isRemovingReaction = userReaction === reactionType;
+
         const response = await fetch(`${import.meta.env.VITE_API_URL}/blogs/${blogId}/react`, {
-            method: "POST",
+            method: isRemovingReaction ? "DELETE" : "POST",
             headers: {
                 "Content-Type": "application/json",
                 "X-Authorization": token,
             },
-            body: JSON.stringify({
-                reaction: reactionType,
-            }),
+            body: isRemovingReaction
+                ? undefined
+                : JSON.stringify({
+                    reaction: reactionType,
+                }),
         });
 
         if (!response.ok) {
-            alert(response.statusText || "Could not react to blog.");
+            alert(response.statusText || "Could not update reaction.");
             return;
         }
 
@@ -45,6 +74,10 @@ function SingleBlogCard({
     }
 
     async function deleteBlog() {
+        if(uniqueCommenters > 0) {
+            alert("You cannot delete a blog with more than 1 comment.");
+            return;
+        }
         const confirmed = window.confirm("Are you sure you want to delete this blog?");
 
         if (!confirmed) return;
@@ -121,6 +154,9 @@ function SingleBlogCard({
                 <h2 className="feed-card__title">{title}</h2>
 
                 <p className="feed-card__desc">{description}</p>
+                <p className="feed-card__commenters">
+                    {uniqueCommenters} unique commenter{uniqueCommenters !== 1 ? "s" : ""}
+                </p>
 
                 {/* Series */}
                 {series && (
@@ -175,9 +211,15 @@ function SingleBlogCard({
                     </button>
 
                     <button className="feed-card__action-btn" onClick={() => reactToBlog("REACTION_4")}>
-                        <Rainbow size={20} color="#FFF494" />
+                        <Rainbow size={20} color="#F7EF5E" />
                         {reactions.REACTION_4}
                     </button>
+
+                    <button className="feed-card__action-btn" onClick={() => reactToBlog("REACTION_5")}>
+                        <Headphones size={20} color="#91F792" />
+                        {reactions.REACTION_5}
+                    </button>
+
                     <div className="feed-card__spacer" />
 
                     {isLoggedIn && (

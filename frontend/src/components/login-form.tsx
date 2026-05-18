@@ -73,7 +73,7 @@ export function LoginForm({
             localStorage.setItem("token", loginData.token);
             localStorage.setItem("userId", loginData.userId.toString());
 
-            navigate("/");
+            window.location.href = "/";
         } catch {
             setError("Something went wrong while logging in.");
             setPassword("");

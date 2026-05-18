@@ -120,7 +120,7 @@ export function SignupForm() {
                 );
             }
 
-            navigate("/");
+            window.location.href = "/";
         } catch {
             setError("Something went wrong during registration.");
             setPassword("");

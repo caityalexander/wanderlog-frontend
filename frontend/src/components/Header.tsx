@@ -50,7 +50,14 @@ function Header() {
                         Logout
                     </button>
                     <Link to="/me" className="header-link">My Blogs</Link>
+                        <Link
+                            to={`/profile/${localStorage.getItem("userId")}`}
+                            className="header-link"
+                        >
+                            Profile
+                        </Link>
                     </>
+
                 )}
 
             </nav>

@@ -28,7 +28,7 @@ function BlogPage() {
     const [sortBy, setSortBy] = useState("CREATED_DESC");
 
     const [page, setPage] = useState(1);
-    const [pageSize] = useState(10);
+    const [pageSize] = useState(9);
     const [totalBlogs, setTotalBlogs] = useState(0);
     const [numReactions, setNumReactions] = useState("");
 
@@ -224,23 +224,12 @@ function BlogPage() {
                     <h2 className="blog-page__sidebar-title">Filter and Sort blogs</h2>
 
                     <label className="blog-page__label">Cities</label>
-                    <select
-                        value={selectedCityIds[0] || ""}
-                        onChange={(e) =>
-                            setSelectedCityIds(
-                                e.target.value ? [e.target.value] : []
-                            )
-                        }
-                        className="blog-page__select"
-                    >
-                        <option value="">All cities</option>
-
-                        {Object.entries(cities).map(([id, name]) => (
-                            <option key={id} value={id}>
-                                {name}
-                            </option>
-                        ))}
-                    </select>
+                    <CheckboxDropdown
+                        label="Cities"
+                        options={cities}
+                        selectedValues={selectedCityIds}
+                        setSelectedValues={setSelectedCityIds}
+                    />
 
                     <label className="blog-page__label">Categories</label>
                     <CheckboxDropdown

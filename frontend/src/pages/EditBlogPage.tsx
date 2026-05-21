@@ -4,180 +4,115 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
     Field,
     FieldContent,
-    FieldError,
     FieldGroup,
     FieldLabel,
 } from "@/components/field";
 
-type City = {
-    cityId: number;
-    name: string;
+type UserProfile = {
+    firstName: string;
+    lastName: string;
+    email: string;
 };
 
-type Category = {
-    categoryId: number;
-    name: string;
-};
-
-type Blog = {
-    blogId: number;
-    title: string;
-    description: string;
-    cityId: number;
-    categoryIds: number[];
-    series: string | null;
-};
-
-type CategoryDropdownProps = {
-    categories: Category[];
-    selectedCategoryIds: string[];
-    setSelectedCategoryIds: React.Dispatch<React.SetStateAction<string[]>>;
-};
-
-function CategoryDropdown({
-                              categories,
-                              selectedCategoryIds,
-                              setSelectedCategoryIds,
-                          }: CategoryDropdownProps) {
-    const [open, setOpen] = useState(false);
-
-    function toggleCategory(id: string) {
-        if (selectedCategoryIds.includes(id)) {
-            setSelectedCategoryIds(
-                selectedCategoryIds.filter((categoryId) => categoryId !== id)
-            );
-        } else {
-            setSelectedCategoryIds([...selectedCategoryIds, id]);
-        }
-    }
-
-    return (
-        <div className="checkbox-dropdown">
-            <button
-                type="button"
-                className="add-blog-input checkbox-dropdown__button"
-                onClick={() => setOpen(!open)}
-            >
-                {selectedCategoryIds.length === 0
-                    ? "Select categories"
-                    : `${selectedCategoryIds.length} selected`}
-            </button>
-
-            {open && (
-                <div className="checkbox-dropdown__menu">
-                    {categories.map((category) => (
-                        <label
-                            key={category.categoryId}
-                            className="checkbox-dropdown__option"
-                        >
-                            <input
-                                type="checkbox"
-                                checked={selectedCategoryIds.includes(String(category.categoryId))}
-                                onChange={() => toggleCategory(String(category.categoryId))}
-                            />
-                            <span>{category.name}</span>
-                        </label>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function EditBlogPage() {
-    const navigate = useNavigate();
+export default function EditProfilePage() {
     const { id } = useParams();
+    const navigate = useNavigate();
 
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [cityId, setCityId] = useState("");
-    const [categoryIds, setCategoryIds] = useState<string[]>([]);
-    const [series, setSeries] = useState("");
-    const [originalSeries, setOriginalSeries] = useState<string | null>(null);
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [email, setEmail] = useState("");
+
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [password, setPassword] = useState("");
+
     const [image, setImage] = useState<File | null>(null);
+    const [removeImage, setRemoveImage] = useState(false);
 
-    const [cities, setCities] = useState<City[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
     const [error, setError] = useState("");
+
+    function isValidEmail(email: string) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
 
     useEffect(() => {
         if (!id) return;
 
-        fetch(`${import.meta.env.VITE_API_URL}/blogs/cities`)
-            .then((res) => res.json())
-            .then(setCities);
+        const loggedInUserId = localStorage.getItem("userId");
 
-        fetch(`${import.meta.env.VITE_API_URL}/blogs/categories`)
-            .then((res) => res.json())
-            .then(setCategories);
+        if (loggedInUserId !== id) {
+            setError("You cannot edit another user's profile.");
+            return;
+        }
 
-        fetch(`${import.meta.env.VITE_API_URL}/blogs/${id}`)
+        const token = localStorage.getItem("token");
+
+        fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+            headers: token ? { "X-Authorization": token } : {},
+        })
             .then((res) => {
                 if (!res.ok) {
-                    throw new Error("Failed to load blog.");
+                    throw new Error("Failed to load profile.");
                 }
                 return res.json();
             })
-            .then((blog: Blog) => {
-                setTitle(blog.title);
-                setDescription(blog.description);
-                setCityId(String(blog.cityId));
-                setCategoryIds(blog.categoryIds.map(String));
-                setSeries(blog.series ?? "");
-                setOriginalSeries(blog.series);
+            .then((user: UserProfile) => {
+                setFirstName(user.firstName);
+                setLastName(user.lastName);
+                setEmail(user.email);
             })
             .catch((err) => setError(err.message));
-
-        const userId = localStorage.getItem("userId");
-
-        if (userId) {
-            fetch(`${import.meta.env.VITE_API_URL}/users/${userId}/series`)
-                .then((res) => res.json())
-                .then(setSeriesOptions)
-                .catch(() => setSeriesOptions([]));
-        }
     }, [id]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError("");
 
-        if (!title.trim() || !description.trim() || !cityId || categoryIds.length === 0) {
-            setError("Please fill in all required fields.");
-            return;
-        }
-
-        if (image && !["image/png", "image/jpeg", "image/gif"].includes(image.type)) {
-            setError("Image must be a PNG, JPEG, or GIF.");
-            return;
-        }
-
         const token = localStorage.getItem("token");
+        const loggedInUserId = localStorage.getItem("userId");
 
-        if (!token) {
-            setError("You must be logged in to edit a blog.");
+        if (!token || loggedInUserId !== id) {
+            setError("You cannot edit this profile.");
             return;
         }
 
-        const body: {
-            title: string;
-            description: string;
-            cityId: number;
-            categoryIds: number[];
-            series?: string | null;
-        } = {
-            title: title.trim(),
-            description: description.trim(),
-            cityId: Number(cityId),
-            categoryIds: categoryIds.map(Number),
-        };
-
-        if (originalSeries === null) {
-            body.series = series.trim() === "" ? null : series.trim();
+        if (!firstName.trim()) {
+            setError("First name is required.");
+            return;
         }
 
-        const blogResponse = await fetch(`${import.meta.env.VITE_API_URL}/blogs/${id}`, {
+        if (!lastName.trim()) {
+            setError("Last name is required.");
+            return;
+        }
+
+        if (!email.trim()) {
+            setError("Email is required.");
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            setError("Email must be valid, for example a@b.c.");
+            return;
+        }
+
+        if (password && password.length < 6) {
+            setError("New password must be at least 6 characters.");
+            return;
+        }
+
+        if (password && !currentPassword) {
+            setError("Current password is required to set a new password.");
+            return;
+        }
+
+        // Update profile details
+        const body: Record<string, string> = { firstName, lastName, email };
+        if (password) {
+            body.currentPassword = currentPassword;
+            body.password = password;
+        }
+
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
             method: "PATCH",
             headers: {
                 "Content-Type": "application/json",
@@ -186,108 +121,118 @@ function EditBlogPage() {
             body: JSON.stringify(body),
         });
 
-        if (!blogResponse.ok) {
-            setError(blogResponse.statusText || "Failed to update blog.");
+        if (!res.ok) {
+            const msg = await res.json().catch(() => ({ error: "Failed to update profile." }));
+            setError(msg.error ?? "Failed to update profile.");
             return;
         }
 
-        if (image) {
-            const imageResponse = await fetch(
-                `${import.meta.env.VITE_API_URL}/blogs/${id}/image`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": image.type,
-                        "X-Authorization": token,
-                    },
-                    body: image,
-                }
-            );
-
-            if (!imageResponse.ok) {
-                setError("Blog updated, but image upload failed.");
-                return;
-            }
+        // Remove profile image if requested
+        if (removeImage) {
+            await fetch(`${import.meta.env.VITE_API_URL}/users/${id}/image`, {
+                method: "DELETE",
+                headers: { "X-Authorization": token },
+            });
         }
 
-        navigate(`/blog?blogId=${id}`);
+        // Upload new profile image if provided
+        if (image) {
+            await fetch(`${import.meta.env.VITE_API_URL}/users/${id}/image`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": image.type,
+                    "X-Authorization": token,
+                },
+                body: image,
+            });
+        }
+
+        navigate(`/profile/${id}`);
     }
 
     return (
         <div className="add-blog-page">
             <div className="add-blog-card">
                 <div className="add-blog-header">
-                    <h1>Edit blog</h1>
-                    <p>Update your blog details. Upload a new image only if you want to replace the old one.</p>
+                    <h1>Edit profile</h1>
+                    <p>Update your account details and profile picture.</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="add-blog-form">
+                <form
+                    noValidate
+                    onSubmit={handleSubmit}
+                    className="add-blog-form"
+                >
+                    {error && (
+                        <p className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                            {error}
+                        </p>
+                    )}
+
                     <FieldGroup>
                         <Field>
-                            <FieldLabel>Title *</FieldLabel>
+                            <FieldLabel>First name *</FieldLabel>
                             <FieldContent>
                                 <input
                                     className="add-blog-input"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Enter blog title"
+                                    value={firstName}
+                                    onChange={(e) => setFirstName(e.target.value)}
                                 />
                             </FieldContent>
                         </Field>
 
                         <Field>
-                            <FieldLabel>Description *</FieldLabel>
+                            <FieldLabel>Last name *</FieldLabel>
                             <FieldContent>
-                                <textarea
+                                <input
                                     className="add-blog-input"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Write your blog description"
-                                    rows={6}
+                                    value={lastName}
+                                    onChange={(e) => setLastName(e.target.value)}
                                 />
                             </FieldContent>
                         </Field>
 
                         <Field>
-                            <FieldLabel>City *</FieldLabel>
+                            <FieldLabel>Email *</FieldLabel>
                             <FieldContent>
-                                <select
+                                <input
                                     className="add-blog-input"
-                                    value={cityId}
-                                    onChange={(e) => setCityId(e.target.value)}
-                                >
-                                    <option value="">Select city</option>
-                                    {cities.map((city) => (
-                                        <option key={city.cityId} value={city.cityId}>
-                                            {city.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </FieldContent>
-                        </Field>
-
-                        <Field>
-                            <FieldLabel>Categories *</FieldLabel>
-                            <FieldContent>
-                                <CategoryDropdown
-                                    categories={categories}
-                                    selectedCategoryIds={categoryIds}
-                                    setSelectedCategoryIds={setCategoryIds}
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                 />
                             </FieldContent>
                         </Field>
 
                         <Field>
-                            <FieldLabel>Image</FieldLabel>
+                            <FieldLabel>Current profile picture</FieldLabel>
                             <FieldContent>
                                 {id && (
                                     <img
-                                        src={`${import.meta.env.VITE_API_URL}/blogs/${id}/image`}
-                                        alt="Current blog"
+                                        src={`${import.meta.env.VITE_API_URL}/users/${id}/image`}
+                                        alt="Current profile"
                                         className="edit-blog-preview"
+                                        onError={(e) => {
+                                            e.currentTarget.src =
+                                                "https://placehold.co/520x293?text=No+Image";
+                                        }}
                                     />
                                 )}
 
+                                <label className="profile-remove-image">
+                                    <input
+                                        type="checkbox"
+                                        checked={removeImage}
+                                        onChange={(e) => setRemoveImage(e.target.checked)}
+                                    />
+                                    Remove current profile picture
+                                </label>
+                            </FieldContent>
+                        </Field>
+
+                        <Field>
+                            <FieldLabel>New profile picture</FieldLabel>
+                            <FieldContent>
                                 <input
                                     className="add-blog-input"
                                     type="file"
@@ -298,49 +243,46 @@ function EditBlogPage() {
                         </Field>
 
                         <Field>
-                            <FieldLabel>Series</FieldLabel>
+                            <FieldLabel>Current password</FieldLabel>
                             <FieldContent>
                                 <input
                                     className="add-blog-input"
-                                    list="series-options"
-                                    value={series}
-                                    disabled={originalSeries !== null}
-                                    onChange={(e) => setSeries(e.target.value)}
-                                    placeholder={
-                                        originalSeries !== null
-                                            ? "Series cannot be changed once set"
-                                            : "Choose existing series or type a new one"
-                                    }
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="Required only if changing password"
                                 />
-
-                                <datalist id="series-options">
-                                    {seriesOptions.map((seriesName) => (
-                                        <option key={seriesName} value={seriesName} />
-                                    ))}
-                                </datalist>
-
-                                {originalSeries !== null && (
-                                    <p className="add-blog-help-text">
-                                        This blog is already part of a series, so the series cannot be changed.
-                                    </p>
-                                )}
                             </FieldContent>
                         </Field>
 
-                        {error && <FieldError>{error}</FieldError>}
+                        <Field>
+                            <FieldLabel>New password</FieldLabel>
+                            <FieldContent>
+                                <input
+                                    className="add-blog-input"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="At least 6 characters"
+                                />
+                            </FieldContent>
+                        </Field>
                     </FieldGroup>
 
                     <div className="add-blog-actions">
                         <button
                             type="button"
                             className="add-blog-secondary"
-                            onClick={() => navigate(-1)}
+                            onClick={() => navigate(`/profile/${id}`)}
                         >
                             Cancel
                         </button>
 
-                        <button type="submit" className="add-blog-primary">
-                            Update blog
+                        <button
+                            type="submit"
+                            className="add-blog-primary"
+                        >
+                            Save changes
                         </button>
                     </div>
                 </form>
@@ -348,5 +290,3 @@ function EditBlogPage() {
         </div>
     );
 }
-
-export default EditBlogPage;

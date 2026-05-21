@@ -4,7 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
     Field,
     FieldContent,
-    FieldError,
     FieldGroup,
     FieldLabel,
 } from "@/components/field";
@@ -31,6 +30,14 @@ export default function EditProfilePage() {
 
     const [error, setError] = useState("");
 
+    function isValidEmail(email: string) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function isValidImage(file: File) {
+        return ["image/jpeg", "image/png", "image/gif"].includes(file.type);
+    }
+
     useEffect(() => {
         if (!id) return;
 
@@ -47,7 +54,9 @@ export default function EditProfilePage() {
             headers: token ? { "X-Authorization": token } : {},
         })
             .then((res) => {
-                if (!res.ok) throw new Error("Failed to load profile.");
+                if (!res.ok) {
+                    throw new Error("Failed to load profile.");
+                }
                 return res.json();
             })
             .then((user: UserProfile) => {
@@ -58,6 +67,11 @@ export default function EditProfilePage() {
             .catch((err) => setError(err.message));
     }, [id]);
 
+    function clearPasswords() {
+        setCurrentPassword("");
+        setPassword("");
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError("");
@@ -67,97 +81,119 @@ export default function EditProfilePage() {
 
         if (!token || loggedInUserId !== id) {
             setError("You cannot edit this profile.");
+            clearPasswords();
             return;
         }
 
-        if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-            setError("First name, last name, and email are required.");
+        if (!firstName.trim()) {
+            setError("First name is required.");
+            clearPasswords();
+            return;
+        }
+
+        if (!lastName.trim()) {
+            setError("Last name is required.");
+            clearPasswords();
+            return;
+        }
+
+        if (!email.trim()) {
+            setError("Email is required.");
+            clearPasswords();
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            setError("Email must be valid, for example a@b.c.");
+            clearPasswords();
             return;
         }
 
         if (password && password.length < 6) {
-            setError("Password must be at least 6 characters.");
+            setError("New password must be at least 6 characters long.");
+            clearPasswords();
             return;
         }
 
         if (password && !currentPassword) {
-            setError("Current password is required to change password.");
+            setError("Current password is required to set a new password.");
+            clearPasswords();
             return;
         }
 
-        if (image && !["image/png", "image/jpeg", "image/gif"].includes(image.type)) {
-            setError("Profile picture must be a PNG, JPEG, or GIF.");
+        if (password && currentPassword && password === currentPassword) {
+            setError("New password must be different from your current password.");
+            clearPasswords();
             return;
         }
 
-        const body: {
-            firstName: string;
-            lastName: string;
-            email: string;
-            password?: string;
-            currentPassword?: string;
-        } = {
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.trim(),
-        };
-
-        if (password) {
-            body.password = password;
-            body.currentPassword = currentPassword;
-        }
-
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Authorization": token,
-            },
-            body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-            setError(response.statusText || "Failed to update profile.");
+        if (image && !isValidImage(image)) {
+            setError("Profile picture must be a JPEG, PNG, or GIF.");
+            clearPasswords();
             return;
         }
 
-        if (removeImage) {
-            const imageDeleteResponse = await fetch(
-                `${import.meta.env.VITE_API_URL}/users/${id}/image`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        "X-Authorization": token,
-                    },
+        try {
+            const body: Record<string, string> = { firstName, lastName, email };
+            if (password) {
+                body.currentPassword = currentPassword;
+                body.password = password;
+            }
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Authorization": token,
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                if (res.status === 400) {
+                    setError("Please check your details and try again.");
+                } else if (res.status === 401) {
+                    setError("Current password is incorrect.");
+                } else if (res.status === 403) {
+                    setError("That email address is already in use, or your new password is the same as your current password.");
+                } else if (res.status === 404) {
+                    setError("User not found.");
+                } else {
+                    setError("Failed to update profile.");
                 }
-            );
-
-            if (!imageDeleteResponse.ok) {
-                setError(imageDeleteResponse.statusText || "Profile updated, but image removal failed.");
+                clearPasswords();
                 return;
             }
-        }
 
-        if (image) {
-            const imageResponse = await fetch(
-                `${import.meta.env.VITE_API_URL}/users/${id}/image`,
-                {
+            if (removeImage) {
+                await fetch(`${import.meta.env.VITE_API_URL}/users/${id}/image`, {
+                    method: "DELETE",
+                    headers: { "X-Authorization": token },
+                });
+            }
+
+            if (image) {
+                const imageRes = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}/image`, {
                     method: "PUT",
                     headers: {
                         "Content-Type": image.type,
                         "X-Authorization": token,
                     },
                     body: image,
+                });
+
+                if (!imageRes.ok) {
+                    setError("Profile updated, but profile picture upload failed.");
+                    clearPasswords();
+                    return;
                 }
-            );
-
-            if (!imageResponse.ok) {
-                setError(imageResponse.statusText || "Profile updated, but image upload failed.");
-                return;
             }
-        }
 
-        navigate(`/profile/${id}`); mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmnmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+            navigate(`/profile/${id}`);
+        } catch {
+            setError("Something went wrong. Please try again.");
+            clearPasswords();
+        }
     }
 
     return (
@@ -168,7 +204,17 @@ export default function EditProfilePage() {
                     <p>Update your account details and profile picture.</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="add-blog-form">
+                <form
+                    noValidate
+                    onSubmit={handleSubmit}
+                    className="add-blog-form"
+                >
+                    {error && (
+                        <p className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                            {error}
+                        </p>
+                    )}
+
                     <FieldGroup>
                         <Field>
                             <FieldLabel>First name *</FieldLabel>
@@ -236,7 +282,7 @@ export default function EditProfilePage() {
                                 <input
                                     className="add-blog-input"
                                     type="file"
-                                    accept="image/png,image/jpeg,image/gif"
+                                    accept="image/jpeg,image/png,image/gif"
                                     onChange={(e) => setImage(e.target.files?.[0] || null)}
                                 />
                             </FieldContent>
@@ -267,20 +313,21 @@ export default function EditProfilePage() {
                                 />
                             </FieldContent>
                         </Field>
-
-                        {error && <FieldError>{error}</FieldError>}
                     </FieldGroup>
 
                     <div className="add-blog-actions">
                         <button
                             type="button"
                             className="add-blog-secondary"
-                            onClick={() => navigate(`/users/${id}`)}
+                            onClick={() => navigate(`/profile/${id}`)}
                         >
                             Cancel
                         </button>
 
-                        <button type="submit" className="add-blog-primary">
+                        <button
+                            type="submit"
+                            className="add-blog-primary"
+                        >
                             Save changes
                         </button>
                     </div>

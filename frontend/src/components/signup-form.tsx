@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { Button } from "../components/button";
 import {
@@ -8,14 +7,11 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
-} from
-    "../components/card";
+} from "../components/card";
 import { Input } from "../components/input";
 import { Label } from "../components/label";
 
 export function SignupForm() {
-    const navigate = useNavigate();
-
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
@@ -37,9 +33,26 @@ export function SignupForm() {
         event.preventDefault();
         setError("");
 
-        if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
-            setError("First name, last name, email, and password are required.");
+        if (!firstName.trim()) {
+            setError("First name is required.");
             setPassword("");
+            return;
+        }
+
+        if (!lastName.trim()) {
+            setError("Last name is required.");
+            setPassword("");
+            return;
+        }
+
+        if (!email.trim()) {
+            setError("Email is required.");
+            setPassword("");
+            return;
+        }
+
+        if (!password) {
+            setError("Password is required.");
             return;
         }
 
@@ -68,20 +81,23 @@ export function SignupForm() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        firstName,
-                        lastName,
-                        email,
+                        firstName: firstName.trim(),
+                        lastName: lastName.trim(),
+                        email: email.trim(),
                         password,
                     }),
                 }
             );
 
             if (!registerResponse.ok) {
-                setError(
-                    registerResponse.status === 403
-                        ? "That email address is already in use."
-                        : "Registration failed."
-                );
+                if (registerResponse.status === 403) {
+                    setError("That email address is already in use.");
+                } else if (registerResponse.status === 400) {
+                    setError("Please check your details and try again.");
+                } else {
+                    setError("Registration failed.");
+                }
+
                 setPassword("");
                 return;
             }
@@ -91,7 +107,10 @@ export function SignupForm() {
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password }),
+                    body: JSON.stringify({
+                        email: email.trim(),
+                        password,
+                    }),
                 }
             );
 
@@ -107,7 +126,7 @@ export function SignupForm() {
             localStorage.setItem("userId", loginData.userId.toString());
 
             if (profileImage) {
-                await fetch(
+                const imageResponse = await fetch(
                     `${import.meta.env.VITE_API_URL}/users/${loginData.userId}/image`,
                     {
                         method: "PUT",
@@ -118,6 +137,12 @@ export function SignupForm() {
                         body: profileImage,
                     }
                 );
+
+                if (!imageResponse.ok) {
+                    setError("Registered successfully, but profile picture upload failed.");
+                    setPassword("");
+                    return;
+                }
             }
 
             window.location.href = "/";
@@ -135,7 +160,11 @@ export function SignupForm() {
             </CardHeader>
 
             <CardContent>
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <form
+                    noValidate
+                    onSubmit={handleSubmit}
+                    className="flex flex-col gap-4"
+                >
                     {error && (
                         <p className="rounded-md bg-red-50 p-3 text-sm text-red-600">
                             {error}
@@ -172,6 +201,7 @@ export function SignupForm() {
 
                     <div className="grid gap-2">
                         <Label htmlFor="password">Password</Label>
+
                         <div className="flex gap-2">
                             <Input
                                 id="password"

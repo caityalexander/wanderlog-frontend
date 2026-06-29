@@ -1,13 +1,11 @@
 # WanderLog Frontend
 
-A modern travel planning web application that helps users organise trips, manage destinations, and build itineraries through a clean and intuitive interface.
+A travel blog page that allows users to post about their travels and engage with fellow travellers. 
 
 ## Features
 
-- Create and manage trips
-- View trip itineraries
-- Browse destination information
-- Responsive user interface
+- Create travel posts
+- Comment and like others posts
 
 ## Getting Started
 
@@ -48,7 +46,7 @@ Add the following if you do not want to set up the local backend:
 VITE_API_URL=https://seng365.csse.canterbury.ac.nz/api/v1
 ```
 
-If you hav the local server running instead add this:
+If you have the local server running instead add this:
 ```env
 VITE_API_BASE_URL=http://localhost:4941/api/v1
 ```

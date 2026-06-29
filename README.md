@@ -5,6 +5,7 @@ A travel blog page that allows users to post about their travels and engage with
 ## Features
 
 - Create travel posts
+- Search and filter travel posts 
 - Comment and like others posts
 
 ## Getting Started

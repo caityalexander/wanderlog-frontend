@@ -22,13 +22,13 @@ Before running the application, ensure you have:
 Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/caityalexander/wanderlog-frontend.git
 ```
 
 Navigate to the project directory:
 
 ```bash
-cd wanderlog-frontend
+cd frontend
 ```
 
 Install dependencies:
@@ -39,7 +39,7 @@ npm install
 
 ### Configure the API
 
-Create a file named `.env` in the project root.
+Create a file named `.env` in the frontend directory.
 
 Add the following if you do not want to set up the local backend:
 
